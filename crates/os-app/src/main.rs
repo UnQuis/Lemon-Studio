@@ -973,7 +973,7 @@ fn linux_icon() -> Option<winit::window::Icon> {
     winit::window::Icon::from_rgba(rgba, w, h).ok()
 }
 
-/// `lemonstudio --screenshot out.png [--view playlist|mixer|piano|none] [--pattern N] [--channel I] [--no-rack] [--browser-tab N] [--browser-menu] [--browser-search TEXT] [--browser-folder DIR[|SUB]] [project.flp]`:
+/// `lemonstudio --screenshot out.png [--lang CODE] [--view playlist|mixer|piano|none] [--pattern N] [--channel I] [--no-rack] [--browser-tab N] [--browser-menu] [--browser-search TEXT] [--browser-folder DIR[|SUB]] [project.flp]`:
 /// paint one 1920×1080 frame offscreen (used to compare with reference measurements).
 fn screenshot(args: &[String]) {
     let mut out = None;
@@ -1009,6 +1009,10 @@ fn screenshot(args: &[String]) {
     while let Some(a) = it.next() {
         match a.as_str() {
             "--screenshot" => out = it.next().cloned(),
+            // The interface language (`--lang CODE`): read by `init_language`; skipped here so the code is not taken for a path.
+            "--lang" => {
+                let _ = it.next();
+            }
             "--theme" => theme = it.next().map(std::path::PathBuf::from),
             // "classic" / "lemon" (spec: ui/lemon-design.md); default: the saved design.
             "--design" => design = it.next().and_then(|v| os_theme::Design::parse(v)),
@@ -1311,6 +1315,9 @@ fn main() {
         std::process::exit(plugins::window_check::run(&args[1..]));
     }
     app::move_old_settings();
+    // The interface language comes from `--lang`, `OPENSTUDIO_LANG` or the saved `language.txt`; the bundles in
+    // the user folder's `languages` are read with it (see `os-i18n`).
+    app::init_language(&args);
     if args.iter().any(|a| a == "--screenshot") {
         screenshot(&args);
         return;

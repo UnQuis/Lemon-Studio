@@ -140,11 +140,21 @@ fn live(key: &str) -> bool {
     LIVE.contains(&key)
 }
 
-/// The combos that work (Audio page: they open a menu of choices, `App::audio_menu`).
-pub const LIVE_COMBOS: [&str; 3] = [OUTPUT_DEVICE, SAMPLE_RATE, BUFFER_LENGTH];
+/// The combos that work (they open a menu of choices: `App::audio_menu`, `App::language_menu`).
+pub const LIVE_COMBOS: [&str; 4] = [OUTPUT_DEVICE, SAMPLE_RATE, BUFFER_LENGTH, LANGUAGE];
 pub const OUTPUT_DEVICE: &str = "Output device";
 pub const SAMPLE_RATE: &str = "Sample rate (Hz)";
 pub const BUFFER_LENGTH: &str = "Buffer length";
+/// The interface language (spec-less): the bundles the binary carries and the ones in the user folder's
+/// `languages` (see the `os-i18n` crate).
+pub const LANGUAGE: &str = "Language";
+
+/// The Language combo's value: the active language's own name and its code.
+fn language_text() -> String {
+    let code = os_i18n::current_code();
+    let code = if code.is_empty() { "en".to_string() } else { code };
+    format!("{} ({code})", os_i18n::current_name())
+}
 
 /// A buffer length as the Audio page shows it: frames and milliseconds at `rate`.
 pub fn buffer_text(frames: u32, rate: u32) -> String {
@@ -345,12 +355,12 @@ pub fn page(tab: usize, s: &State) -> Vec<Group> {
                 Check("High visibility", false),
                 combo("Off", 146.0, "Colorful waveforms"),
             ]) },
-            Group { note: " (requires a restart to take effect)", ..gf("Language", false, vec![
-                combo("English (US) (en)", 176.0, "Language"),
+            gf("Language", false, vec![
+                combo(&language_text(), 176.0, LANGUAGE),
                 combo("English", 176.0, "Note names"),
                 combo("Sharps - #", 96.0, "Black notes"),
                 Buttons(vec![("Update languages", 138.0)]),
-            ]) },
+            ]),
             gf("Input", false, vec![
                 combo("Multi-button mouse", 136.0, "Optimize for"),
                 Buttons(vec![("Manage shortcuts", 212.0)]),

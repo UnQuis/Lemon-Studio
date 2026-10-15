@@ -1,0 +1,8 @@
+[package]
+name = "os-i18n"
+description = "Lemon Studio interface translations: language bundles and the text lookup the canvas paints through"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]

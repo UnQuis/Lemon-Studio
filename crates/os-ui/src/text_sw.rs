@@ -12,7 +12,9 @@
 //! an average character width), so the layouts measured for Cuprum hold: Barlow is sized so that its
 //! capitals are as tall as Cuprum's and fitted to Cuprum's average width. Bold text uses the family's
 //! semibold, strongly condensed text its narrow cut, and digits are tabular so a counting number keeps
-//! its width. `OPENSTUDIO_TEXT=cuprum` brings back the portable engine with Cuprum.
+//! its width. Barlow has no Cyrillic: a character it has no glyph for is drawn from Cuprum (the Windows
+//! interface font, which does), at the same fitted width. `OPENSTUDIO_TEXT=cuprum` brings back the
+//! portable engine with Cuprum.
 
 use std::collections::HashMap;
 
@@ -58,6 +60,8 @@ pub struct Sw {
     regular: FaceData,
     bold: FaceData,
     narrow: FaceData,
+    /// Cuprum: the shapes for the characters the Barlow faces have no glyphs for (Cyrillic).
+    cyr: FaceData,
     /// Cuprum's win ascent / descent and average character width (em): the layout's reference.
     ui: (f32, f32),
     ref_avg: f32,
@@ -85,8 +89,8 @@ fn face(data: &'static [u8], cap_ref: f32) -> Result<FaceData, String> {
     Ok(FaceData { font, size_k, avg })
 }
 
-/// Faces an engine holds (regular, semibold, narrow): its fonts in the CPU panel's Misc reading.
-const FACES: usize = 3;
+/// Faces an engine holds (regular, semibold, narrow, Cuprum): its fonts in the CPU panel's Misc reading.
+const FACES: usize = 4;
 
 impl Drop for Sw {
     fn drop(&mut self) {
@@ -111,6 +115,7 @@ impl Sw {
             regular: face(REGULAR, cap_ref)?,
             bold: face(SEMIBOLD, cap_ref)?,
             narrow: face(NARROW, cap_ref)?,
+            cyr: cuprum,
             ui: (asc, desc),
             ref_avg,
             to_lin,
@@ -162,6 +167,12 @@ impl Sw {
         }
     }
 
+    /// The face that draws `c`: the fitted Barlow one, or Cuprum when it has no glyph for `c` (Cyrillic).
+    fn face_for(&self, which: u8, c: char) -> &FaceData {
+        let fd = self.face(which);
+        if fd.font.charmap().map(c) == 0 { &self.cyr } else { fd }
+    }
+
     /// Digits are tabular: each takes the widest digit's advance and sits in its middle, so a number that
     /// counts does not change its width. Returns (advance, offset of the glyph inside it).
     fn advance(&mut self, c: char, f: Font, scale: f32) -> (f32, f32) {
@@ -179,7 +190,7 @@ impl Sw {
             return *a;
         }
         let (which, k) = self.setup(f, scale);
-        let fd = self.face(which);
+        let fd = self.face_for(which, c);
         let gm = fd.font.glyph_metrics(&[]).scale(Self::px(f, scale) * fd.size_k);
         let a = gm.advance_width(fd.font.charmap().map(c)) * k;
         self.advances.insert(key, a);
@@ -190,11 +201,14 @@ impl Sw {
         let key = (c, f, scale.to_bits(), phase);
         if !self.glyphs.contains_key(&key) {
             let (which, k) = self.setup(f, scale);
-            let fd = match which {
+            // Field-level (not through a `&self` helper): the scaler below needs `self.ctx` mutably at the same
+            // time, and Cuprum stands in for a character Barlow has no glyph for (Cyrillic).
+            let base = match which {
                 1 => &self.bold,
                 2 => &self.narrow,
                 _ => &self.regular,
             };
+            let fd = if base.font.charmap().map(c) == 0 { &self.cyr } else { base };
             let px = Self::px(f, scale) * fd.size_k;
             // The light face (the song position digits) has no cut of its own here: the regular stands in.
             let mut scaler = self.ctx.builder(fd.font).size(px).hint(true).build();

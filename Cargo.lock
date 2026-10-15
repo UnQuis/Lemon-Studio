@@ -2432,6 +2432,7 @@ dependencies = [
  "os-flp",
  "os-host",
  "os-hostlink",
+ "os-i18n",
  "os-model",
  "os-native",
  "os-paths",
@@ -2505,6 +2506,10 @@ version = "0.0.1"
 dependencies = [
  "windows-sys 0.61.2",
 ]
+
+[[package]]
+name = "os-i18n"
+version = "0.0.1"
 
 [[package]]
 name = "os-model"
@@ -2582,6 +2587,7 @@ name = "os-ui"
 version = "0.0.1"
 dependencies = [
  "fontdue",
+ "os-i18n",
  "os-theme",
  "swash",
  "tiny-skia",

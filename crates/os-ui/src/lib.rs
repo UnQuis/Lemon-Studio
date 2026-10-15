@@ -758,8 +758,10 @@ impl Canvas {
         }
     }
 
-    /// Width of `s` in logical pixels.
+    /// Width of `s` in logical pixels (`s` is translated first: see `os-i18n`).
     pub fn text_width(&mut self, f: Font, s: &str) -> f32 {
+        let t = os_i18n::tr(s);
+        let s = &*t;
         self.text.extent(f, self.scale, s).0 as f32 / self.scale
     }
 
@@ -773,8 +775,11 @@ impl Canvas {
         self.text.metrics(f, self.scale).1 as f32 / self.scale
     }
 
-    /// Draw `s` with its text cell's top-left at (x, y). Returns the advance width.
+    /// Draw `s` (translated first: see `os-i18n`) with its text cell's top-left at (x, y). Returns the advance
+    /// width.
     pub fn text(&mut self, f: Font, x: f32, y: f32, c: Color, s: &str) -> f32 {
+        let t = os_i18n::tr(s);
+        let s = &*t;
         let k = self.scale;
         let (xi, yi) = ((x * k).round() as i32, (y * k).round() as i32);
         let (w, h) = self.text.extent(f, k, s);
@@ -797,8 +802,10 @@ impl Canvas {
         self.text(f, (r.cx() - w / 2.0).round(), (r.cy() - h / 2.0).round(), c, s);
     }
 
-    /// `f`, horizontally condensed step by step (then shrunk) until `s` fits in `max_w`.
+    /// `f`, horizontally condensed step by step (then shrunk) until `s` (already translated) fits in `max_w`.
     pub fn fit_font(&mut self, f: Font, s: &str, max_w: f32) -> Font {
+        let t = os_i18n::tr(s);
+        let s = &*t;
         if self.text_width(f, s) <= max_w {
             return f;
         }
@@ -832,6 +839,8 @@ impl Canvas {
     /// Text rotated 90° counter-clockwise (reads bottom to top), starting at (x, y_bottom),
     /// with the glyph tops facing left at `x`. Returns the advance (upward extent).
     pub fn text_vertical(&mut self, f: Font, x: f32, y_bottom: f32, c: Color, s: &str) -> f32 {
+        let t = os_i18n::tr(s);
+        let s = &*t;
         let k = self.scale;
         let (xi, yi) = ((x * k).round() as i32, (y_bottom * k).round() as i32);
         let (w, h) = self.text.extent(f, k, s);

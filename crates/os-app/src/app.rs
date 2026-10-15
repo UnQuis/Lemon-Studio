@@ -2922,6 +2922,32 @@ impl App {
         self.invalidate();
     }
 
+    /// The menu of the Language combo, under its box (`x`, `y`): every language the binary carries or the user
+    /// folder's `languages` holds (see the `os-i18n` crate), the active one ticked.
+    fn language_menu(&mut self, x: f32, y: f32) {
+        use crate::playlist::{Cmd, Mark, PItem, Popup};
+        let current = os_i18n::current_code();
+        let items: Vec<PItem> = os_i18n::languages()
+            .into_iter()
+            .map(|(code, name)| {
+                let on = if code == "en" { current.is_empty() } else { code == current };
+                let label = if code == "en" { name } else { format!("{name} ({code})") };
+                PItem::new(label, Cmd::Language(code)).mark(Mark::Radio(on))
+            })
+            .collect();
+        self.state.playlist.popup = Some(Popup { x, y: y + 1.0, items, sub: None });
+        self.invalidate();
+    }
+
+    /// Switches the interface language (the Settings window's Language combo): the next frame is drawn in it, the
+    /// choice is saved for the next start.
+    pub fn set_language(&mut self, code: &str) {
+        os_i18n::set_language(code);
+        save_language(code);
+        self.state.message = Some(format!("Language: {}", os_i18n::current_name()));
+        self.invalidate();
+    }
+
     /// Changes one audio setting: kept for the next start, hosted plugins move to the new rate, and the open streams
     /// move to the new output (spec: ui/settings.md "Audio").
     pub fn set_audio(&mut self, s: crate::audio_cfg::Set) {
@@ -2955,6 +2981,7 @@ impl App {
         match a {
             SAct::Body => {}
             SAct::Close => st.open = false,
+            SAct::Combo(label, x, y) if label == views::settings::LANGUAGE => return self.language_menu(x, y),
             SAct::Combo(label, x, y) => return self.audio_menu(label, x, y),
             SAct::Tab(i) => {
                 st.tab = i;
@@ -5784,6 +5811,56 @@ pub fn move_old_settings() {
     let (Some(old), Some(new)) = (os_paths::legacy_dir(), os_paths::user_dir()) else { return };
     if old.is_dir() && !new.exists() {
         let _ = std::fs::rename(&old, &new);
+    }
+}
+
+/// The interface language at startup: `--lang` on the command line, then `OPENSTUDIO_LANG`, then the saved
+/// `language.txt`; English when there is none. Every `.lang` file in the user folder's `languages` is registered
+/// first, so a user can extend a bundled language or add one of their own (see the `os-i18n` crate).
+pub fn init_language(args: &[String]) {
+    if cfg!(test) {
+        return;
+    }
+    if let Some(d) = os_paths::user_file("languages") {
+        if let Ok(rd) = std::fs::read_dir(d) {
+            let mut files: Vec<std::path::PathBuf> = rd.flatten().map(|e| e.path()).collect();
+            files.sort();
+            for p in files {
+                let (Some(code), true) = (p.file_stem().and_then(|s| s.to_str()).map(str::to_string), p.extension().is_some_and(|e| e == "lang")) else {
+                    continue;
+                };
+                match std::fs::read_to_string(&p) {
+                    Ok(text) => os_i18n::add_language(&code, None, &text),
+                    Err(e) => eprintln!("bundle {}: {e}", p.display()),
+                }
+            }
+        }
+    }
+    let code = args
+        .iter()
+        .position(|a| a == "--lang")
+        .and_then(|i| args.get(i + 1).cloned())
+        .or_else(|| std::env::var("OPENSTUDIO_LANG").ok().filter(|s| !s.is_empty()))
+        .or_else(saved_language)
+        .unwrap_or_default();
+    if !code.is_empty() {
+        os_i18n::set_language(&code);
+    }
+}
+
+/// The language named in the user folder's `language.txt` (`lang=ru`).
+fn saved_language() -> Option<String> {
+    let text = std::fs::read_to_string(os_paths::user_file("language.txt")?).ok()?;
+    text.lines().find_map(|l| l.trim().strip_prefix("lang=")).map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
+}
+
+fn save_language(code: &str) {
+    if cfg!(test) {
+        return;
+    }
+    if let Some(dir) = os_paths::user_dir() {
+        let _ = std::fs::create_dir_all(&dir);
+        let _ = std::fs::write(dir.join("language.txt"), format!("lang={code}\n"));
     }
 }
 
