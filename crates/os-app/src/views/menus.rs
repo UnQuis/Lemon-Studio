@@ -314,22 +314,25 @@ pub fn item_at(menu: usize, i: usize) -> Option<&'static Item> {
 /// Menu bar font: Cuprum 18 px condensed (spec §3).
 pub const BAR_FONT: Font = Font::condensed(18, 6);
 
-/// Menu bar item layout: (x0, x1, average character width of the font). Left edges are the measured word
-/// starts. The words are as wide as the font makes them; where a text engine sets them wider than the slots
-/// were measured for, all eight are condensed one step further so that no word runs into the next.
+/// Menu bar item layout: (x0, x1, average character width of the font). Left edges start at the word starts the
+/// bar was measured with. A title wider than its slot (a translation) pushes the words after it right, and while
+/// the packed row still runs past the right end the whole bar is condensed a step further.
 pub fn bar_layout(c: &mut os_ui::Canvas) -> [(f32, f32, f32); 8] {
     const X: [f32; 8] = [8.0, 35.0, 61.0, 88.0, 143.0, 176.0, 226.0, 266.0];
     const END: f32 = 300.0;
+    // The least space the words of the English bar leave between each other.
+    const GAP: f32 = 4.0;
     let mut out = [(0.0, 0.0, 6.0); 8];
-    for width in [BAR_FONT.width, 5, 4] {
+    for width in [BAR_FONT.width, 5, 4, 3] {
         let f = Font::condensed(BAR_FONT.size, width);
-        let mut fits = true;
+        let mut x = X[0];
         for (i, m) in MENUS.iter().enumerate() {
-            let x1 = X[i] + c.text_width(f, m.title);
-            fits &= x1 + 4.0 <= X.get(i + 1).copied().unwrap_or(END);
-            out[i] = (X[i], x1, f32::from(width));
+            let x0 = x.max(X[i]);
+            let x1 = x0 + c.text_width(f, m.title);
+            x = x1 + GAP;
+            out[i] = (x0, x1, f32::from(width));
         }
-        if fits {
+        if out[7].1 + GAP <= END {
             break;
         }
     }

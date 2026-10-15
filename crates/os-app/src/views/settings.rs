@@ -630,13 +630,13 @@ pub fn paint(ui: &mut Ui, s: &State) {
     }
     ui.c.icon(&os_ui::tabler::SETTINGS, Rect::new(r.x + 7.0, r.y + 7.0, 16.0, 16.0), t.text_dim);
     let (_, title, _) = TABS[st.tab.min(TABS.len() - 1)];
+    let title = os_i18n::tr(title);
     ui.c.text(Font::new(13), r.x + 28.0, r.y + 7.0, t.text, &format!("Settings - {title}"));
     let x = Rect::new(r.right() - 26.0, r.y + 5.0, 20.0, 20.0);
     let hov = ui.hit(x, Action::Settings(SAct::Close), "Close");
     ui.c.icon(&os_ui::tabler::X, x.inset(3.0), if hov { t.glyph } else { t.text });
     // Tabs (spec §2): active text coloured by group.
-    let font = Font::new(13);
-    let rects = tab_rects(ui, r);
+    let (rects, font) = tab_rects(ui, r);
     for (i, &(label, _, grp)) in TABS.iter().enumerate() {
         let tr = rects[i];
         let hov = ui.hit(tr, Action::Settings(SAct::Tab(i)), TABS[i].1);
@@ -696,20 +696,31 @@ pub fn paint(ui: &mut Ui, s: &State) {
     }
 }
 
-/// Tab rects in window `r`: text width + 10 px each side, 4 px apart, 15 px more between groups.
-fn tab_rects(ui: &mut Ui, r: Rect) -> Vec<Rect> {
-    let font = Font::new(13);
-    let mut x = r.x + 3.0;
-    let mut v = Vec::new();
-    for (i, &(label, _, grp)) in TABS.iter().enumerate() {
-        if i > 0 && TABS[i - 1].2 != grp {
-            x += 15.0;
+/// Tab rects in window `r`: text width + 10 px each side, 4 px apart, 15 px more between groups. From the widths
+/// of a translation the row can run past the close box: the labels are then condensed a step at a time until
+/// they fit, and the font that did is the one to draw them with.
+fn tab_rects(ui: &mut Ui, r: Rect) -> (Vec<Rect>, Font) {
+    let limit = r.right() - 34.0;
+    let mut out = (Vec::new(), Font::new(13));
+    for width in [0, 7, 6, 5] {
+        let font = if width == 0 { Font::new(13) } else { Font::condensed(13, width) };
+        let mut x = r.x + 3.0;
+        let mut v = Vec::new();
+        for (i, &(label, _, grp)) in TABS.iter().enumerate() {
+            if i > 0 && TABS[i - 1].2 != grp {
+                x += 15.0;
+            }
+            let w = ui.c.text_width(font, label) + 20.0;
+            v.push(Rect::new(x.round(), r.y + 34.0, w.round(), TABS_B - 34.0));
+            x += w + 11.0;
         }
-        let w = ui.c.text_width(font, label) + 20.0;
-        v.push(Rect::new(x.round(), r.y + 34.0, w.round(), TABS_B - 34.0));
-        x += w + 11.0;
+        let fits = v.last().is_none_or(|t| t.right() <= limit);
+        out = (v, font);
+        if fits {
+            break;
+        }
     }
-    v
+    out
 }
 
 fn paint_group(ui: &mut Ui, s: &State, gr: &Group, r: Rect, open: bool, clip: Rect) {
