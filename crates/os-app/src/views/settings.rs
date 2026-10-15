@@ -696,23 +696,23 @@ pub fn paint(ui: &mut Ui, s: &State) {
     }
 }
 
-/// Tab rects in window `r`: text width + 10 px each side, 4 px apart, 15 px more between groups. From the widths
-/// of a translation the row can run past the close box: the labels are then condensed a step at a time until
-/// they fit, and the font that did is the one to draw them with.
+/// Tab rects in window `r`: text width + `pad`, `gap` apart, `grp` more between groups. From the widths of a
+/// translation the row can run past the close box: the paddings are then tightened, and if even that is not
+/// enough the labels are condensed a step at a time. The font of the run that fits is the one to draw them with.
 fn tab_rects(ui: &mut Ui, r: Rect) -> (Vec<Rect>, Font) {
     let limit = r.right() - 34.0;
     let mut out = (Vec::new(), Font::new(13));
-    for width in [0, 7, 6, 5] {
+    for (width, pad, gap, grp) in [(0, 20.0, 11.0, 15.0), (0, 14.0, 7.0, 10.0), (6, 14.0, 7.0, 10.0), (5, 14.0, 7.0, 10.0), (4, 14.0, 7.0, 10.0)] {
         let font = if width == 0 { Font::new(13) } else { Font::condensed(13, width) };
         let mut x = r.x + 3.0;
         let mut v = Vec::new();
-        for (i, &(label, _, grp)) in TABS.iter().enumerate() {
-            if i > 0 && TABS[i - 1].2 != grp {
-                x += 15.0;
+        for (i, &(label, _, grp_id)) in TABS.iter().enumerate() {
+            if i > 0 && TABS[i - 1].2 != grp_id {
+                x += grp;
             }
-            let w = ui.c.text_width(font, label) + 20.0;
+            let w = ui.c.text_width(font, label) + pad;
             v.push(Rect::new(x.round(), r.y + 34.0, w.round(), TABS_B - 34.0));
-            x += w + 11.0;
+            x += w + gap;
         }
         let fits = v.last().is_none_or(|t| t.right() <= limit);
         out = (v, font);
